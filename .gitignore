@@ -1,0 +1,8 @@
+databases/logs.db
+databases/sensor_data.db
+scripts/__pycache__/data_handler.cpython-311.pyc
+scripts/__pycache__/settings_handler.cpython-311.pyc
+scripts/__pycache__/utils.cpython-311.pyc
+scripts/__pycache__/logs_handler.cpython-311.pyc
+logs/backend.log
+databases/settings.db
