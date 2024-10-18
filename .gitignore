@@ -6,3 +6,4 @@ scripts/__pycache__/utils.cpython-311.pyc
 scripts/__pycache__/logs_handler.cpython-311.pyc
 logs/backend.log
 databases/settings.db
+venv/
