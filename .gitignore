@@ -7,3 +7,4 @@ scripts/__pycache__/logs_handler.cpython-311.pyc
 logs/backend.log
 databases/settings.db
 venv/
+logs/network_switcher.log
