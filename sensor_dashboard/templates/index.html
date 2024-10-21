@@ -1,0 +1,86 @@
+<!-- templates/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sensor Data Dashboard</title>
+    <!-- Include Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Basic styling for layout */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .filter-section {
+            margin-bottom: 20px;
+        }
+        .filter-section label {
+            margin-right: 10px;
+        }
+        .chart-container {
+            width: 100%;
+            margin-bottom: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sensor Data Dashboard</h1>
+    
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <label for="device">Device:</label>
+        <select id="device">
+            <option value="">All Devices</option>
+            {% for device in devices %}
+                <option value="{{ device['device_id'] }}">{{ device['device_id'] }}</option>
+            {% endfor %}
+        </select>
+        
+        <label for="subdevice">Subdevice:</label>
+        <select id="subdevice">
+            <option value="">All Subdevices</option>
+            {% for sub in subdevices %}
+                <option value="{{ sub['subdevice_id'] }}">{{ sub['subdevice_id'] }}</option>
+            {% endfor %}
+        </select>
+        
+        <button id="filter-btn">Filter</button>
+    </div>
+    
+    <!-- Charts for Accelerometer and Gyroscope Data -->
+    <div class="chart-container">
+        <h2>Accelerometer X</h2>
+        <canvas id="accel_x_chart"></canvas>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Accelerometer Y</h2>
+        <canvas id="accel_y_chart"></canvas>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Accelerometer Z</h2>
+        <canvas id="accel_z_chart"></canvas>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Gyroscope X</h2>
+        <canvas id="gyro_x_chart"></canvas>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Gyroscope Y</h2>
+        <canvas id="gyro_y_chart"></canvas>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Gyroscope Z</h2>
+        <canvas id="gyro_z_chart"></canvas>
+    </div>
+    
+    <!-- Link to external JavaScript file -->
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>
