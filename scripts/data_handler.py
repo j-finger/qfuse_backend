@@ -14,6 +14,7 @@ def handle_data_message(data):
             return
 
         conn = get_database_connection('sensor_data.db')
+        conn.execute('PRAGMA journal_mode=WAL;')  # Enable WAL mode
         c = conn.cursor()
 
         for entry in data_list:

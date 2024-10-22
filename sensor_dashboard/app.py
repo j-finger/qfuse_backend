@@ -1,4 +1,4 @@
-# app.py
+# ~/qfuse_backend/sensor_dashboard/app.py
 
 from flask import Flask, render_template, request, jsonify
 import sqlite3
@@ -14,6 +14,7 @@ def get_db_connection():
     """Establishes a connection to the SQLite database."""
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row  # This allows us to fetch rows as dictionaries
+    conn.execute('PRAGMA journal_mode=WAL;')  # Enable WAL mode
     return conn
 
 @app.route('/')
@@ -32,9 +33,11 @@ def get_data():
     """
     API endpoint to fetch sensor data.
     Supports filtering by device_id and subdevice_id via query parameters.
+    Selects every 10th data point to reduce data volume.
     """
     device = request.args.get('device')
     subdevice = request.args.get('subdevice')
+    since_id = request.args.get('since_id', type=int)
 
     query = "SELECT * FROM sensor_data"
     conditions = []
@@ -46,18 +49,21 @@ def get_data():
     if subdevice:
         conditions.append("subdevice_id = ?")
         params.append(subdevice)
+    if since_id is not None:
+        conditions.append("id > ?")
+        params.append(since_id)
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
-    # Fetch the latest 1000 records; adjust as needed
-    query += " ORDER BY id DESC LIMIT 1000"
+    # Select every 10th data point using modulo operator on 'id'
+    query += " AND (id % 10 = 0)"
+    query += " ORDER BY id ASC"  # Order data from oldest to newest
 
     conn = get_db_connection()
     rows = conn.execute(query, params).fetchall()
     conn.close()
 
-    # Convert rows to a list of dictionaries
     data = [dict(row) for row in rows]
 
     return jsonify(data)
