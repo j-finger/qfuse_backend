@@ -1,3 +1,4 @@
+# settings_handler.py
 # scripts/settings_handler.py
 
 import logging
@@ -24,16 +25,16 @@ def handle_settings_message(data):
         accel_mode = power.get('accel_mode')
         gyro_mode = power.get('gyro_mode')
 
-        conn = get_database_connection('settings.db')
-        c = conn.cursor()
+        conn = get_database_connection()
+        cursor = conn.cursor()
 
-        c.execute('''
+        cursor.execute('''
             INSERT INTO settings (
                 device_id, time, subdevice_id,
                 accel_odr, accel_fsr, accel_sensitivity,
                 gyro_odr, gyro_fsr, gyro_sensitivity,
                 accel_mode, gyro_mode
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (
             device_id, time, subdevice_id,
             accel_odr, accel_fsr, accel_sensitivity,
@@ -42,6 +43,7 @@ def handle_settings_message(data):
         ))
 
         conn.commit()
+        cursor.close()
         conn.close()
         logging.info(f"Settings updated for device {device_id}, subdevice {subdevice_id}.")
     except Exception as e:

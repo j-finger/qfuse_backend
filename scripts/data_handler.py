@@ -1,5 +1,6 @@
 # data_handler.py
 # scripts/data_handler.py
+
 import logging
 from utils import get_database_connection
 
@@ -13,9 +14,8 @@ def handle_data_message(data):
             logging.warning("No data entries found in the message.")
             return
 
-        conn = get_database_connection('sensor_data.db')
-        conn.execute('PRAGMA journal_mode=WAL;')  # Enable WAL mode
-        c = conn.cursor()
+        conn = get_database_connection()
+        cursor = conn.cursor()
 
         for entry in data_list:
             subdevice_id = entry.get('subdevice')
@@ -89,13 +89,13 @@ def handle_data_message(data):
                 logging.error("Invalid gyro_z value.")
 
             # Perform the database insertion
-            c.execute('''
+            cursor.execute('''
                 INSERT INTO sensor_data (
                     device_id, subdevice_id, time, timestamp,
                     accel_x, accel_y, accel_z,
                     gyro_x, gyro_y, gyro_z,
                     temperature
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 device_id, subdevice_id, time, timestamp,
                 accel_x, accel_y, accel_z,
@@ -104,6 +104,7 @@ def handle_data_message(data):
             ))
 
         conn.commit()
+        cursor.close()
         conn.close()
         logging.info(f"Inserted {len(data_list)} data entries for device {device_id}.")
     except Exception as e:

@@ -11,3 +11,9 @@ logs/network_switcher.log
 databases/SELECT
 databases/.mode
 databases/.headers
+scripts/test.py
+databases_bak/.headers
+databases_bak/.mode
+databases_bak/logs.db
+databases_bak/settings.db
+sensor_dashboard/__pycache__/utils.cpython-311.pyc

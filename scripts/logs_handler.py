@@ -1,3 +1,4 @@
+# logs_handler.py
 # scripts/logs_handler.py
 
 import logging
@@ -13,15 +14,16 @@ def handle_logs_message(data):
             logging.warning("No log message found.")
             return
 
-        conn = get_database_connection('logs.db')
-        c = conn.cursor()
+        conn = get_database_connection()
+        cursor = conn.cursor()
 
-        c.execute('''
+        cursor.execute('''
             INSERT INTO logs (device_id, time, message)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
         ''', (device_id, time, message))
 
         conn.commit()
+        cursor.close()
         conn.close()
         logging.info(f"Log entry added for device {device_id}.")
     except Exception as e:

@@ -1,36 +1,37 @@
+# viewer.py
 # scripts/viewer.py
 
-import sqlite3
 import logging
 from utils import get_database_connection
 
-def view_table(db_name, table_name, limit=10):
+def view_table(table_name, limit=10):
     try:
-        conn = get_database_connection(db_name)
-        c = conn.cursor()
-        c.execute(f'SELECT * FROM {table_name} LIMIT ?', (limit,))
-        rows = c.fetchall()
+        conn = get_database_connection()
+        cursor = conn.cursor()
+        cursor.execute(f'SELECT * FROM {table_name} LIMIT %s', (limit,))
+        rows = cursor.fetchall()
+        cursor.close()
         conn.close()
         return rows
     except Exception as e:
-        logging.error(f"Error viewing table {table_name} in {db_name}: {e}")
+        logging.error(f"Error viewing table {table_name}: {e}")
         return []
 
 def main():
-    logging.info("Viewing sample data from databases...\n")
+    logging.info("Viewing sample data from the database...\n")
 
     print("Sensor Data:")
-    sensor_data = view_table('sensor_data.db', 'sensor_data')
+    sensor_data = view_table('sensor_data')
     for row in sensor_data:
         print(row)
 
     print("\nSettings:")
-    settings = view_table('settings.db', 'settings')
+    settings = view_table('settings')
     for row in settings:
         print(row)
 
     print("\nLogs:")
-    logs = view_table('logs.db', 'logs')
+    logs = view_table('logs')
     for row in logs:
         print(row)
 
