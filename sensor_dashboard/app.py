@@ -53,11 +53,12 @@ def get_data():
         conditions.append("id > ?")
         params.append(since_id)
 
+    # Add the modulo condition to select every 10th data point
+    conditions.append("(id % 10 = 0)")
+
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
-    # Select every 10th data point using modulo operator on 'id'
-    query += " AND (id % 10 = 0)"
     query += " ORDER BY id ASC"  # Order data from oldest to newest
 
     conn = get_db_connection()

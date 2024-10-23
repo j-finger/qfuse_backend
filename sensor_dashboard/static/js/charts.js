@@ -169,7 +169,7 @@ function updateChartsIncremental(data) {
             });
 
             // Optionally limit the number of data points to prevent memory issues
-            const MAX_POINTS =2000;
+            const MAX_POINTS = 5000;
             if (dataset.data.length > MAX_POINTS) {
                 dataset.data = dataset.data.slice(-MAX_POINTS);
             }
