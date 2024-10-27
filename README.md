@@ -1,290 +1,367 @@
-# qfuse Backend Scripts
 
-## Overview
+## Raspberry Pi Backend and Frontend for `qfuse` Data Acquisition System
 
-The `qfuse` backend consists of a suite of Python scripts designed to handle data transmission, processing, and storage for the `qfuse` project. This backend facilitates the reception of sensor data, settings, and logs via MQTT, processes the received JSON packets, and stores the information in SQLite3 databases. Additionally, it provides utilities for initializing databases and viewing stored data.
+### Overview
 
-## Features
+This repository contains the backend and frontend code for the `qfuse` data acquisition system, designed to run on a Raspberry Pi 4. The Raspberry Pi acts as a central server, hosting an MQTT broker for data ingestion, a Flask web application for data visualization, and handles data storage in a MariaDB database. The backend processes sensor data received from the ESP32C6 modules and stores it for further analysis, while the frontend provides a dashboard for real-time data visualization and monitoring.
 
-- **MQTT Integration**: Receives data through MQTT topics (`sensor/data`, `sensor/settings`, `sensor/logs`).
-- **Data Processing**: Parses JSON packets and inserts data into appropriate SQLite3 databases.
-- **Database Management**: Initializes and manages SQLite3 databases for sensor data, settings, and logs.
-- **Logging**: Comprehensive logging for monitoring and debugging.
-- **Data Visualization**: Simple script to view stored data from databases.
+### Features
 
-## Prerequisites
+- **MQTT Broker**: Hosts an MQTT broker to receive sensor data from multiple `qfuse` devices.
+- **Data Storage**: Stores sensor data, settings, and logs in a MariaDB database.
+- **Data Processing**: Parses and processes incoming JSON data, handling different message types.
+- **Flask Web Application**: Provides a web-based dashboard for data visualization with real-time charts.
+- **RESTful API**: Offers an API endpoint to fetch sensor data for the frontend.
+- **Network Configuration Management**: Includes a network switcher script to toggle between AP and Client modes.
+- **Logging and Error Handling**: Implements detailed logging for troubleshooting and system monitoring.
 
-- **Python**: Version 3.7 or higher.
-- **MQTT Broker**: Mosquitto MQTT Server or any compatible broker.
-- **SQLite3**: For database management.
-- **Python Packages**:
-  - `paho-mqtt`
-  - `sqlite3` (usually included with Python)
-  - `logging`
+### Hardware Setup
 
-## Installation
+#### Components
 
-1. **Clone the Repository**
+- **Raspberry Pi 4**: Acts as the backend server and frontend host.
+- **ESP32C6 Modules**: Send sensor data to the Raspberry Pi via MQTT over Wi-Fi.
+- **`qfuse` Development Boards**: Collect sensor data and transmit it through the ESP32C6 modules.
+
+#### Network Configuration
+
+- **Access Point Mode**: The Raspberry Pi can act as a Wi-Fi access point (`qfnet`) for direct connections from ESP32C6 modules.
+- **Client Mode**: The Raspberry Pi connects to a preconfigured Wi-Fi network (`preconfigured`).
+
+#### GPIO Pins
+
+- **Switch Pin**: GPIO 21 (Connected to a toggle switch for network mode switching).
+- **LED Indicators**:
+	- **LED_WIFI_PIN**: GPIO 7 (Indicates Wi-Fi connection status).
+	- **LED_LAN_PIN**: GPIO 10 (Indicates LAN connection status).
+
+### Software Dependencies
+
+- **Operating System**: Raspberry Pi OS (32-bit or 64-bit).
+- **Python 3.x**: For running scripts and Flask application.
+- **MariaDB**: For data storage.
+- **Flask**: Web framework for the frontend application.
+- **Paho-MQTT**: MQTT client library for Python.
+- **Chart.js**: JavaScript library for data visualization in the frontend.
+- **RPi.GPIO**: For GPIO pin control in Python.
+- **Subprocess**: For executing shell commands from Python scripts.
+- **Systemd**: For managing services like `mqtt_listener.service`.
+
+### Directory Structure
+
+- `app.py`: Main Flask application file for the frontend.
+- `scripts/`: Contains backend scripts and utilities.
+	- `mqtt_listener.py`: Listens to MQTT topics and processes incoming messages.
+	- `data_handler.py`: Handles incoming sensor data and stores it in the database.
+	- `settings_handler.py`: Processes settings messages.
+	- `logs_handler.py`: Processes log messages.
+	- `initialize_databases.py`: Initializes the database tables.
+	- `network_switcher.py`: Manages network mode switching via GPIO.
+	- `viewer.py`: Utility script to view database entries.
+	- `utils.py`: Contains common utility functions and configurations.
+- `templates/`: Contains HTML templates for the Flask application.
+	- `index.html`: Main dashboard page.
+- `static/`: Contains static files for the frontend.
+	- `js/charts.js`: JavaScript file for rendering charts using Chart.js.
+- `logs/`: Directory for log files.
+	- `backend.log`: Log file for backend operations.
+- `databases/`: Directory for database files (if using SQLite, but MariaDB is used here).
+
+### Setup Instructions
+
+#### Prerequisites
+
+1. **Update System Packages**:
 
    ```bash
-   git clone https://github.com/yourusername/qfuse-backend.git
-   cd qfuse-backend/scripts
+   sudo apt update
+   sudo apt upgrade
    ```
 
-2. **Set Up a Virtual Environment (Optional but Recommended)**
+2. **Install Python 3 and Pip**:
 
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
+   sudo apt install python3 python3-pip
    ```
 
-3. **Install Required Python Packages**
+3. **Install MariaDB**:
 
    ```bash
-   pip install paho-mqtt
+   sudo apt install mariadb-server
    ```
 
-   *Note: If you have a `requirements.txt` file, you can install all dependencies at once:*
+4. **Install Required Python Packages**:
 
    ```bash
-   pip install -r requirements.txt
+   pip3 install flask mariadb paho-mqtt RPi.GPIO
    ```
 
-## Setup
+#### Database Configuration
 
-### Initialize Databases
+1. **Secure MariaDB Installation**:
 
-Before running the backend scripts, initialize the necessary SQLite3 databases.
+   ```bash
+   sudo mysql_secure_installation
+   ```
 
-```bash
-python initialize_databases.py
+   - Set a root password.
+   - Remove anonymous users.
+   - Disallow root login remotely.
+   - Remove test database.
+   - Reload privilege tables.
+
+2. **Create Database and User**:
+
+   ```bash
+   sudo mariadb
+   ```
+
+   In the MariaDB shell:
+
+   ```sql
+   CREATE DATABASE sensor_data_db;
+   CREATE USER 'username'@'localhost' IDENTIFIED BY 'password';
+   GRANT ALL PRIVILEGES ON sensor_data_db.* TO 'username'@'localhost';
+   FLUSH PRIVILEGES;
+   EXIT;
+   ```
+
+   Replace `'username'` and `'password'` with your desired credentials.
+
+3. **Initialize Database Tables**:
+
+   ```bash
+   python3 scripts/initialize_databases.py
+   ```
+
+#### MQTT Broker Setup
+
+1. **Install Mosquitto MQTT Broker**:
+   ```bash
+   sudo apt install mosquitto mosquitto-clients
+   ```
+2. **Configure Mosquitto (Optional)**:
+   - Edit `/etc/mosquitto/mosquitto.conf` to adjust configurations if necessary.
+   - Restart Mosquitto service:
+     ```bash
+     sudo systemctl restart mosquitto
+     ```
+
+#### Flask Application Setup
+
+1. **Set Environment Variables**:
+   ```bash
+   export FLASK_APP=app.py
+   export FLASK_ENV=development  # Remove or change to 'production' in production environment
+   ```
+2. **Run the Flask Application**:
+   ```bash
+   flask run --host=0.0.0.0 --port=5000
+   ```
+   - The application will be accessible at `http://<raspberry_pi_ip>:5000`.
+
+#### Backend Services Setup
+
+1. **Set Up MQTT Listener as a Service**:
+
+   - Create a systemd service file `/etc/systemd/system/mqtt_listener.service`:
+```ini
+[Unit]
+Description=MQTT Listener Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /path/to/scripts/mqtt_listener.py
+WorkingDirectory=/path/to/scripts
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
 ```
-
-This script will create the following databases in the `databases/` directory:
-
-- `sensor_data.db`: Stores sensor data from IMU sensors.
-- `settings.db`: Stores device settings.
-- `logs.db`: Stores log messages.
-
-## Usage
-
-### Running the MQTT Listener
-
-Start the MQTT listener to begin receiving and processing data from the `qfuse` devices.
-
-```bash
-python mqtt_listener.py
-```
-
-**What It Does:**
-
-- Connects to the MQTT broker at `localhost` on port `1883`.
-- Subscribes to the following MQTT topics:
-  - `sensor/data`
-  - `sensor/settings`
-  - `sensor/logs`
-- Processes incoming messages and delegates them to appropriate handlers:
-  - `sensor/data` → `data_handler.py`
-  - `sensor/settings` → `settings_handler.py`
-  - `sensor/logs` → `logs_handler.py`
-
-**Note:** Ensure that the MQTT broker is running and accessible at the specified address and port.
-
-### Viewing Data
-
-To view sample data from the databases, use the `viewer.py` script.
-
-```bash
-python viewer.py
-```
-
-**What It Does:**
-
-- Connects to each SQLite3 database (`sensor_data.db`, `settings.db`, `logs.db`).
-- Retrieves and prints the first 10 entries from each table:
-  - `sensor_data`
-  - `settings`
-  - `logs`
-
-**Example Output:**
-
-```
-Viewing sample data from databases...
-
-Sensor Data:
-(1, 'E46338809B472231', 1, '1728792656', '0000C8', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 25.0)
-(2, 'E46338809B472231', 1, '1728792656', '0000C9', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 25.1)
-
-Settings:
-(1, 'E46338809B472231', '1728792656', 1, '100Hz', '±4g', 8192.0, '100Hz', '±500dps', 65.5, 'Low Noise', 'Low Noise')
-
-Logs:
-(1, 'E46338809B472231', '1728792656', 'some log line')
-```
-
-## Project Structure
-
-```
-qfuse-backend/
-├── databases/
-│   ├── sensor_data.db
-│   ├── settings.db
-│   └── logs.db
-├── logs/
-│   └── backend.log
-├── scripts/
-│   ├── data_handler.py
-│   ├── initialize_databases.py
-│   ├── logs_handler.py
-│   ├── mqtt_listener.py
-│   ├── settings_handler.py
-│   ├── utils.py
-│   └── viewer.py
-├── requirements.txt
-└── README.md
-```
-
-- **databases/**: Contains SQLite3 database files.
-- **logs/**: Contains the backend log file (`backend.log`).
-- **scripts/**: Contains all backend Python scripts.
-- **requirements.txt**: Lists Python dependencies (if available).
-- **README.md**: Project documentation (this file).
-
-## Scripts Description
-
-### data_handler.py
-
-**Location:** `scripts/data_handler.py`
-
-**Description:**
-
-Handles incoming sensor data messages from the `sensor/data` MQTT topic. It parses the JSON payload and inserts the sensor readings into the `sensor_data.db` database.
-
-**Key Functions:**
-
-- `handle_data_message(data)`: Processes the sensor data and performs database insertion.
-
-### initialize_databases.py
-
-**Location:** `scripts/initialize_databases.py`
-
-**Description:**
-
-Initializes the SQLite3 databases by creating the necessary tables if they do not already exist.
-
-**Key Functions:**
-
-- `create_databases()`: Creates `sensor_data.db`, `settings.db`, and `logs.db` with their respective tables.
-
-**Usage:**
-
-```bash
-python initialize_databases.py
-```
-
-### logs_handler.py
-
-**Location:** `scripts/logs_handler.py`
-
-**Description:**
-
-Handles incoming log messages from the `sensor/logs` MQTT topic. It parses the JSON payload and inserts log messages into the `logs.db` database.
-
-**Key Functions:**
-
-- `handle_logs_message(data)`: Processes the log message and performs database insertion.
-
-### mqtt_listener.py
-
-**Location:** `scripts/mqtt_listener.py`
-
-**Description:**
-
-Listens to MQTT topics (`sensor/data`, `sensor/settings`, `sensor/logs`) and delegates message handling to the appropriate handlers. Manages MQTT connection and subscription.
-
-**Key Functions:**
-
-- `on_connect(client, userdata, flags, rc)`: Callback for MQTT connection.
-- `on_message(client, userdata, msg)`: Callback for incoming MQTT messages.
-- `main()`: Initializes and starts the MQTT client loop.
-
-**Usage:**
-
-```bash
-python mqtt_listener.py
-```
-
-### settings_handler.py
-
-**Location:** `scripts/settings_handler.py`
-
-**Description:**
-
-Handles incoming settings messages from the `sensor/settings` MQTT topic. It parses the JSON payload and updates the device settings in the `settings.db` database.
-
-**Key Functions:**
-
-- `handle_settings_message(data)`: Processes the settings data and performs database insertion.
-
-### utils.py
-
-**Location:** `scripts/utils.py`
-
-**Description:**
-
-Provides utility functions and configurations used by other scripts, including database connection management and logging setup.
-
-**Key Components:**
-
-- **Directories:**
-  - `DATABASES_DIR`: Path to the `databases/` directory.
-  - `LOGS_DIR`: Path to the `logs/` directory.
-- **Logging Configuration:**
-  - Logs are written to `logs/backend.log` and also output to the console.
-- **Functions:**
-  - `get_database_connection(db_name)`: Returns a connection to the specified SQLite database.
-
-**Note:** This script ensures that the `databases/` and `logs/` directories exist, creating them if necessary.
-
-### viewer.py
-
-**Location:** `scripts/viewer.py`
-
-**Description:**
-
-A utility script to view sample data from the databases. It prints the first 10 entries from each table (`sensor_data`, `settings`, `logs`) to the console.
-
-**Key Functions:**
-
-- `view_table(db_name, table_name, limit=10)`: Retrieves and returns rows from a specified table.
-- `main()`: Executes the viewing of sample data.
-
-**Usage:**
-
-```bash
-python viewer.py
-```
-
-## Logging
-
-All backend activities are logged in the `logs/backend.log` file. Logs include:
-
-- **INFO**: Successful operations (e.g., database insertions, MQTT connections).
-- **WARNING**: Potential issues (e.g., missing data in messages).
-- **ERROR**: Failures or exceptions during processing.
-
-**Example Log Entry:**
-
-```
-2024-04-27 10:15:30,123 INFO:Inserted 2 data entries for device E46338809B472231.
-2024-04-27 10:15:31,456 ERROR:Error in handle_data_message: SQLite3 error message
-```
-
-**Log Configuration:**
-
-- Logs are written to both the log file (`logs/backend.log`) and the console.
-- Logging level is set to `INFO` by default.
-
-## License
+ Replace `/path/to/scripts` with the actual path to your `scripts/` directory.
+   - Reload systemd and start the service:
+     ```bash
+     sudo systemctl daemon-reload
+     sudo systemctl enable mqtt_listener.service
+     sudo systemctl start mqtt_listener.service
+     ```
+2. **Set Up Network Switcher Script**:
+   - Ensure the `network_switcher.py` script is running at startup.
+   - Add it to `rc.local` or create a systemd service for it.
+
+#### GPIO Permissions
+
+- Add your user to the `gpio` group:
+  ```bash
+  sudo adduser pi gpio
+  ```
+- Install `python3-rpi.gpio`:
+  ```bash
+  sudo apt install python3-rpi.gpio
+  ```
+
+### Usage Instructions
+
+#### Running the Backend
+
+- The `mqtt_listener.py` script runs as a service and listens for incoming MQTT messages on the topics:
+	- `sensor/data`
+	- `sensor/settings`
+	- `sensor/logs`
+	- `time/request`
+- Incoming messages are processed and stored in the MariaDB database.
+
+#### Accessing the Frontend Dashboard
+
+- Navigate to `http://<raspberry_pi_ip>:5000` in a web browser.
+- Use the filter options to select specific devices or subdevices.
+- The dashboard displays real-time charts for accelerometer and gyroscope data.
+
+#### Switching Network Modes
+
+- Use the physical toggle switch connected to GPIO 21 to switch between AP Mode and Client Mode.
+- **AP Mode**:
+	- Raspberry Pi acts as a Wi-Fi access point (`qfnet`).
+	- ESP32C6 modules connect directly to the Raspberry Pi.
+- **Client Mode**:
+	- Raspberry Pi connects to a preconfigured Wi-Fi network (`preconfigured`).
+	- Ensure that the network credentials are correctly set in the Raspberry Pi's network manager.
+- LED Indicators:
+	- **LED_WIFI_PIN (GPIO 7)**: Indicates Wi-Fi connection status.
+	- **LED_LAN_PIN (GPIO 10)**: Indicates LAN connection status.
+
+### Code Organization
+
+#### `app.py`
+
+- **Flask Application**:
+	- Renders the main dashboard page with filter options.
+	- Provides an API endpoint `/api/data` to fetch sensor data in JSON format.
+	- Supports filtering by `device_id` and `subdevice_id`.
+
+#### `scripts/`
+
+- **`mqtt_listener.py`**:
+	- Connects to the MQTT broker and subscribes to relevant topics.
+	- Dispatches incoming messages to appropriate handlers.
+- **`data_handler.py`**:
+	- Processes incoming sensor data messages.
+	- Parses JSON payloads and inserts data into the `sensor_data` table.
+- **`settings_handler.py`**:
+	- Handles settings messages and stores them in the `settings` table.
+- **`logs_handler.py`**:
+	- Processes log messages and stores them in the `logs` table.
+- **`network_switcher.py`**:
+	- Monitors the toggle switch state and switches network modes accordingly.
+	- Controls LED indicators to reflect the current network status.
+- **`initialize_databases.py`**:
+	- Initializes the required database tables if they do not exist.
+- **`utils.py`**:
+	- Contains utility functions such as database connection management and logging configuration.
+
+#### `templates/index.html`
+
+- **HTML Template**:
+	- Defines the structure of the dashboard page.
+	- Includes placeholders for device and subdevice filter options.
+	- References JavaScript files for chart rendering.
+
+#### `static/js/charts.js`
+
+- **JavaScript for Data Visualization**:
+	- Uses Chart.js to render real-time charts for accelerometer and gyroscope data.
+	- Fetches data from the `/api/data` endpoint.
+	- Implements incremental data fetching and chart updating.
+
+### Configuration
+
+#### Database Configuration
+
+- **MariaDB Credentials**:
+	- Set in `utils.py` under `DATABASE_CONFIG`.
+	- Ensure that the user and password match what was set during database setup.
+
+#### MQTT Broker Configuration
+
+- **MQTT Topics**:
+	- Defined in `mqtt_listener.py` under `MQTT_TOPICS`.
+	- Ensure that the ESP32C6 modules publish to these topics.
+- **Broker Address**:
+	- By default, the broker is hosted locally (`localhost`).
+	- If the broker is hosted elsewhere, update the `MQTT_BROKER` variable.
+
+#### Network Configuration
+
+- **Network Manager Connection Names**:
+	- Defined in `network_switcher.py` as `AP_MODE` and `CLIENT_MODE`.
+	- Ensure that these names match the connection profiles in Network Manager.
+- **GPIO Pins**:
+	- Switch and LED pins are defined in `network_switcher.py`.
+	- Adjust if different GPIO pins are used.
+
+#### Flask Application
+
+- **Host and Port**:
+	- By default, the Flask app runs on `0.0.0.0` and port `5000`.
+	- Adjust in `app.py` or when running the `flask run` command.
+
+### Troubleshooting
+
+- **Cannot Connect to the MQTT Broker**:
+	- Ensure that Mosquitto is running:
+    ```bash
+    sudo systemctl status mosquitto
+    ```
+	- Check firewall settings to ensure the broker port (`1883`) is open.
+- **Database Connection Errors**:
+	- Verify MariaDB is running:
+    ```bash
+    sudo systemctl status mariadb
+    ```
+	- Ensure that the database credentials in `utils.py` are correct.
+- **Flask Application Not Accessible**:
+	- Confirm the Flask app is running without errors.
+	- Check that the correct IP address and port are used.
+	- Ensure no firewall rules are blocking port `5000`.
+- **Network Switching Not Working**:
+	- Check GPIO connections and ensure the toggle switch is functioning.
+	- Verify that the `network_switcher.py` script is running.
+	- Review logs in `backend.log` for any error messages.
+- **Data Not Displaying on Dashboard**:
+	- Confirm that data is being received and stored in the database.
+	- Use `viewer.py` to inspect database entries.
+	- Check browser console for any JavaScript errors.
+
+### Future Work
+
+- **Implement Authentication**:
+	- Add user authentication to the Flask application for secure access.
+- **Data Aggregation and Analysis**:
+	- Implement data aggregation functions for long-term data analysis.
+	- Develop algorithms for sensor fusion and anomaly detection.
+- **Enhanced Visualization**:
+	- Add more charts and graphs to display additional data metrics.
+	- Implement real-time updates using WebSockets.
+- **Scalability Improvements**:
+	- Optimize database queries and indexing for better performance.
+	- Implement data retention policies and archival strategies.
+- **Security Enhancements**:
+	- Secure MQTT communication using TLS.
+	- Implement input validation and sanitization throughout the application.
+
+### License
 
 This project is licensed under the [MIT License](LICENSE).
+
+### Acknowledgments
+
+- **Flask**: For the web framework used in the frontend.
+- **MariaDB**: For the database management system.
+- **Mosquitto**: For the MQTT broker.
+- **Chart.js**: For providing the charting library.
+- **Raspberry Pi Community**: For extensive documentation and support.
+- **Open Source Contributors**: For various libraries and tools utilized.
+
